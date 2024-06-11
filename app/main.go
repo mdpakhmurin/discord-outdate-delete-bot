@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -13,7 +14,9 @@ var (
 	session                 *discordgo.Session
 	BotToken                string
 	GuildID                 = ""
+	LogToFIle               = true
 	RemoveCommandsAfterExit = true
+	SharedDataPath          = "./data"
 )
 
 func loadConfig() {
@@ -41,7 +44,26 @@ func waitForExit() {
 	<-stop
 }
 
+func setupLogToFile() (file *os.File) {
+	// Creating log file
+	file, err := os.OpenFile(SharedDataPath+"/log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal("Error setting up log to file: ", err)
+	}
+
+	// Creating a MultiWriter that will write to a file and to the console
+	multi := io.MultiWriter(file, os.Stdout)
+	log.SetOutput(multi)
+
+	return
+}
+
 func main() {
+	if LogToFIle {
+		file := setupLogToFile()
+		defer file.Close()
+	}
+
 	// Open discord session
 	err := session.Open()
 	if err != nil {

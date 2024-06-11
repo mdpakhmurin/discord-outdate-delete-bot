@@ -33,7 +33,7 @@ func init() {
 func initDb() {
 	// open database connection
 	var err error
-	db, err = sql.Open("sqlite", "./data/timeouts.db")
+	db, err = sql.Open("sqlite", SharedDataPath+"/timeouts.db")
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}

@@ -25,9 +25,11 @@ func RemoveOldMessages() {
 			if err != nil {
 				// Is the message unavailable due to access issues
 				if errD, ok := err.(*discordgo.RESTError); ok {
-					switch errD.Message.Code {
-					case discordgo.ErrCodeUnknownChannel, discordgo.ErrCodeMissingAccess, discordgo.ErrCodeMissingPermissions:
-						unavailableСhannelsToDelete = append(unavailableСhannelsToDelete, channelID)
+					if errD.Message != nil {
+						switch errD.Message.Code {
+						case discordgo.ErrCodeUnknownChannel, discordgo.ErrCodeMissingAccess, discordgo.ErrCodeMissingPermissions:
+							unavailableСhannelsToDelete = append(unavailableСhannelsToDelete, channelID)
+						}
 					}
 				} else {
 					log.Printf("Failed to get messages: %v", err)

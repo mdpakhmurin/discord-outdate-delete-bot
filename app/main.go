@@ -72,12 +72,11 @@ func main() {
 	defer session.Close()
 
 	registeredCommands := RegisterCommands()
+	if RemoveCommandsAfterExit {
+		defer RemoveCommands(registeredCommands)
+	}
 
 	go RemoveOldMessages()
 
 	waitForExit()
-
-	if RemoveCommandsAfterExit {
-		RemoveCommands(registeredCommands)
-	}
 }

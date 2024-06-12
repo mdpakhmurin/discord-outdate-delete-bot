@@ -21,7 +21,7 @@ func RemoveOldMessages() {
 			channelID := channelTimeout.ChannelID
 
 			// Get outdate messages
-			messages, err := getOutdateChannelMessages(10, channelTimeout)
+			messages, err := getOutdateChannelMessages(30, channelTimeout)
 			if err != nil {
 				// Is the message unavailable due to access issues
 				if errD, ok := err.(*discordgo.RESTError); ok {
@@ -36,6 +36,8 @@ func RemoveOldMessages() {
 				}
 				continue
 			}
+			// Pinned messages will not be deleted
+			messages = excludePinnedMessages(messages)
 
 			// Delete outdate messages
 			err = deleteChannelMessages(channelID, messages)
@@ -63,6 +65,15 @@ func getOutdateChannelMessages(messagesNumber int, channelTimeout ChannelTimeout
 	return
 }
 
+func excludePinnedMessages(messages []*discordgo.Message) (unpinnedMessages []*discordgo.Message) {
+	for _, message := range messages {
+		if !message.Pinned {
+			unpinnedMessages = append(unpinnedMessages, message)
+		}
+	}
+	return
+}
+
 func deleteChannelMessages(channelID string, messages []*discordgo.Message) (err error) {
 	messageIDs := make([]string, len(messages))
 	for i, message := range messages {
@@ -71,18 +82,3 @@ func deleteChannelMessages(channelID string, messages []*discordgo.Message) (err
 	err = session.ChannelMessagesBulkDelete(channelID, messageIDs)
 	return err
 }
-
-// func deleteChannelMessages(channelID string, messages []*discordgo.Message) (err error) {
-// 	messageIDs := make([]string, 0, len(messages))
-// 	for _, message := range messages {
-// 		// Last message sent by the bot is not deleted
-// 		if !(message.Author.ID == session.State.User.ID && message.ID == messages[0].ID) {
-// 			messageIDs = append(messageIDs, message.ID)
-// 		}
-// 	}
-
-// 	if len(messageIDs) > 0 {
-// 		err = session.ChannelMessagesBulkDelete(channelID, messageIDs)
-// 	}
-// 	return
-// }

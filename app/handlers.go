@@ -94,6 +94,7 @@ func responseToCommand(message string, session *discordgo.Session, interaction *
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: message,
+			Flags:   64, // 64 - Ephemeral messages. These messages are visible only to the user who called the command
 		},
 	})
 }

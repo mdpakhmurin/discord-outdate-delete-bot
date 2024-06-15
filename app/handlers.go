@@ -3,9 +3,11 @@ package main
 // Handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"math"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -20,8 +22,8 @@ var (
 
 // Registers all handlers
 func RegisterHandlers() {
-	session.AddHandler(CommandsHandler)
-	session.AddHandler(ReadyHandler)
+	Session.AddHandler(CommandsHandler)
+	Session.AddHandler(ReadyHandler)
 }
 
 // Triggered at startup
@@ -40,21 +42,22 @@ func CommandsHandler(session *discordgo.Session, interaction *discordgo.Interact
 func InfoCommandHandler(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
 	channelID := interaction.ChannelID
 
-	// Get timeout
-	hasTimeout, timeout, err := GetChannelTimeout(channelID)
-	if err != nil {
+	// Get channelProperties
+	channelProperties, err := GetChannelProperties(channelID)
+
+	if err == sql.ErrNoRows {
+		responseToCommand("Messages are not deleted in this channel", session, interaction)
+	} else if err != nil {
 		log.Printf("Failed to get timeout %v", err)
 		responseToCommand("Failed to get timeout", session, interaction)
-		return
-	}
-
-	if hasTimeout {
-		responseMessage := fmt.Sprintf("All messages sent more than %s ago will be deleted", сonvertFloatHoursToTimeString(timeout))
-		responseToCommand(responseMessage, session, interaction)
-		return
 	} else {
-		responseToCommand("Messages are not deleted in this channel", session, interaction)
-		return
+		responseMessage := fmt.Sprintf("All messages sent more than %s ago will be deleted", сonvertFloatHoursToTimeString(channelProperties.Timeout))
+		responseToCommand(responseMessage, session, interaction)
+
+		err := UpdateChanneLastActivity(channelID, time.Now().Unix())
+		if err != nil {
+			log.Printf("Failed to update channel last activity %v: ", err)
+		}
 	}
 }
 
@@ -64,7 +67,7 @@ func RemoveTimeoutCommandHandler(session *discordgo.Session, interaction *discor
 	responseMessage := "Deleting messages in the channel has been stopped"
 
 	// Remove timeout
-	err := DeleteChannelTimeout(channelID)
+	err := DeleteChannelProperties(channelID)
 	if err != nil {
 		responseMessage = "Failed to stop deletion"
 		log.Printf("Failed to stop deletion: %v", err)
@@ -79,8 +82,14 @@ func SetTimeoutCommandHandler(session *discordgo.Session, interaction *discordgo
 
 	responseMessage := fmt.Sprintf("All messages sent more than %s ago will be deleted", сonvertFloatHoursToTimeString(hours))
 
-	// Save channel timeout
-	err := WriteChannelTimeout(channelID, hours)
+	channelProperties := ChannelPropertiesEntity{
+		ChannelID:    channelID,
+		Timeout:      hours,
+		LastActivity: time.Now().Unix(),
+	}
+
+	// Save channel properties
+	err := WriteChannelProperties(&channelProperties)
 	if err != nil {
 		responseMessage = "Failed to save timeout"
 		log.Printf("Failed to save timeout: %v", err)

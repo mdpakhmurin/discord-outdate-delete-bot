@@ -11,12 +11,15 @@ import (
 )
 
 var (
-	session                 *discordgo.Session
-	BotToken                string
-	GuildID                 = ""
-	LogToFIle               = true
-	RemoveCommandsAfterExit = true
-	SharedDataPath          = "./data"
+	BotToken                       string
+	GuildID                                = ""
+	LogToFIle                              = true
+	MaximumHoursValue              float64 = 720  // 1 month
+	MinimalHoursValue              float64 = 0.05 // 3 minutes
+	RemoveCommandsAfterExit                = true
+	RemoveInactiveChannelTimeHorus float64 = 720 // 1 month
+	Session                        *discordgo.Session
+	SharedDataPath                 = "./data"
 )
 
 func loadConfig() {
@@ -25,7 +28,7 @@ func loadConfig() {
 
 func loadSession() {
 	var err error
-	session, err = discordgo.New(BotToken)
+	Session, err = discordgo.New(BotToken)
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
@@ -58,6 +61,7 @@ func setupLogToFile() (file *os.File) {
 	return
 }
 
+// TODO: Check channs that really may be have messages to delete
 func main() {
 	if LogToFIle {
 		file := setupLogToFile()
@@ -65,11 +69,11 @@ func main() {
 	}
 
 	// Open discord session
-	err := session.Open()
+	err := Session.Open()
 	if err != nil {
 		log.Fatal("Error when opening a bot session: ", err)
 	}
-	defer session.Close()
+	defer Session.Close()
 
 	registeredCommands := RegisterCommands()
 	if RemoveCommandsAfterExit {

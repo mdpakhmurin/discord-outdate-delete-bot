@@ -61,7 +61,6 @@ func setupLogToFile() (file *os.File) {
 	return
 }
 
-// TODO: Check channs that really may be have messages to delete
 func main() {
 	if LogToFIle {
 		file := setupLogToFile()

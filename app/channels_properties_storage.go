@@ -20,9 +20,10 @@ var (
 )
 
 type ChannelPropertiesEntity struct {
-	ChannelID    string  `db:"channel_id"`
-	Timeout      float64 `db:"timeout"`
-	LastActivity int64   `db:"last_activity"`
+	ChannelID        string  `db:"channel_id"`
+	Timeout          float64 `db:"timeout"`
+	LastActivityDate int64   `db:"last_activity_date"`
+	NextRemoveDate   int64   `db:"next_remove_date"`
 }
 
 func init() {
@@ -47,7 +48,14 @@ func openTableConnection() {
 
 // Create table if it doesn't exists
 func createTableIfNotExists() {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS channels (channel_id TEXT PRIMARY KEY, timeout REAL, last_activity INTEGER)")
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS channels (
+			channel_id TEXT PRIMARY KEY,
+			timeout REAL,
+			last_activity_date INTEGER,
+			next_remove_date INTEGER
+		)
+	`)
 	if err != nil {
 		log.Fatalf("Failed to create table: %v", err)
 	}
@@ -86,6 +94,21 @@ func DeleteChannelsProperties(channelIDs []string) (err error) {
 	return
 }
 
+// Get channels with remove date before specified date
+// These channels may contain outdated messages for removing
+func GetChannelsWithRemoveDateBeforeMoment(momentUnixtime int64) (channels []*ChannelPropertiesEntity, err error) {
+	dbLock.RLock()
+	defer dbLock.RUnlock()
+
+	query := `
+        SELECT * FROM channels
+        WHERE next_remove_date < ?
+    `
+	err = sqlxdb.Select(&channels, query, momentUnixtime)
+
+	return
+}
+
 // Get all channels properties
 func GetAllChannelsProperties() (channelsProperties []*ChannelPropertiesEntity, err error) {
 	dbLock.RLock()
@@ -111,25 +134,60 @@ func WriteChannelProperties(channelProperties *ChannelPropertiesEntity) (err err
 	dbLock.Lock()
 	defer dbLock.Unlock()
 
-	_, err = db.Exec("INSERT OR REPLACE INTO channels (channel_id, timeout, last_activity) VALUES (?, ?, ?)",
+	_, err = db.Exec(`
+		INSERT OR REPLACE INTO channels
+			(channel_id, timeout, last_activity_date, next_remove_date)
+			VALUES (?, ?, ?, ?)`,
 		channelProperties.ChannelID,
 		channelProperties.Timeout,
-		channelProperties.LastActivity)
+		channelProperties.LastActivityDate,
+		channelProperties.NextRemoveDate)
 	return
 }
 
 // Save channel properties
-func WriteChannelsProperties(channelProperties []*ChannelPropertiesEntity) (err error) {
+func WriteChannelsProperties(channelsProperties []*ChannelPropertiesEntity) (err error) {
 	dbLock.Lock()
 	defer dbLock.Unlock()
 
-	for _, timeout := range channelProperties {
-		_, err = db.Exec("INSERT OR REPLACE INTO channels (channel_id, timeout, last_activity) VALUES (?, ?, ?)",
-			timeout.ChannelID,
-			timeout.Timeout,
-			timeout.LastActivity)
+	// Use transaction to save all array as one action
+	transaction, err := db.Begin()
+	if err != nil {
+		return err
 	}
-	return
+	defer func() {
+		if err != nil {
+			transaction.Rollback()
+		} else {
+			err = transaction.Commit()
+		}
+	}()
+
+	// prepared write statement
+	statement, err := transaction.Prepare(`
+        INSERT OR REPLACE INTO channels
+            (channel_id, timeout, last_activity_date, next_remove_date)
+        VALUES (?, ?, ?, ?)
+    `)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+
+	// insert each of channels properties in prepared statement
+	for _, channelProperties := range channelsProperties {
+		_, err = statement.Exec(
+			channelProperties.ChannelID,
+			channelProperties.Timeout,
+			channelProperties.LastActivityDate,
+			channelProperties.NextRemoveDate,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Update last activity for channel with unix time
@@ -137,6 +195,6 @@ func UpdateChanneLastActivity(channelID string, lastActivityUnixTime int64) (err
 	dbLock.Lock()
 	defer dbLock.Unlock()
 
-	_, err = db.Exec("UPDATE channels SET last_activity = ? WHERE channel_id = ?", lastActivityUnixTime, channelID)
+	_, err = db.Exec("UPDATE channels SET last_activity_date = ? WHERE channel_id = ?", lastActivityUnixTime, channelID)
 	return
 }

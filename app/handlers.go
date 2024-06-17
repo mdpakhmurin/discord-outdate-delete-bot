@@ -83,9 +83,10 @@ func SetTimeoutCommandHandler(session *discordgo.Session, interaction *discordgo
 	responseMessage := fmt.Sprintf("All messages sent more than %s ago will be deleted", сonvertFloatHoursToTimeString(hours))
 
 	channelProperties := ChannelPropertiesEntity{
-		ChannelID:    channelID,
-		Timeout:      hours,
-		LastActivity: time.Now().Unix(),
+		ChannelID:        channelID,
+		Timeout:          hours,
+		LastActivityDate: time.Now().Unix(),
+		NextRemoveDate:   0, // Channel must be checked now
 	}
 
 	// Save channel properties

@@ -35,6 +35,7 @@ var (
 	}
 )
 
+// Register commands in the bot (and local)
 func RegisterCommands() (registeredCommands []*discordgo.ApplicationCommand) {
 	log.Println("Registering commands...")
 
@@ -49,6 +50,7 @@ func RegisterCommands() (registeredCommands []*discordgo.ApplicationCommand) {
 	return
 }
 
+// Remove (unregisted) commands in the bot
 func RemoveCommands(commandsForRemoving []*discordgo.ApplicationCommand) {
 	log.Println("Removing commands...")
 

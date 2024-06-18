@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mdpakhmurin/discord-outdate-delete-bot/data/cpstorage"
 )
 
 func RemoveOldMessages() {
 	for {
 		// Get timeouts for each channel
-		channelsProperties, err := GetChannelsWithRemoveDateBeforeMoment(time.Now().Unix())
+		channelsProperties, err := cpstorage.GetChannelsWithRemoveDateBeforeMoment(time.Now().Unix())
 		if err != nil {
 			log.Fatalf("Failed to get query timeouts: %v", err)
 		}
@@ -43,7 +44,7 @@ func RemoveOldMessages() {
 
 			// Update last activity if there are deleted messages
 			if len(messages) > 0 {
-				channelProperties.LastActivityDate = time.Now().Unix()
+				channelProperties.LastActivityDateUnix = time.Now().Unix()
 			}
 
 			// Get next remove date in unix format
@@ -52,7 +53,7 @@ func RemoveOldMessages() {
 				fmt.Printf("Failed to get next remove date: %v", err)
 				nextRemoveDateUnix = 0
 			}
-			channelProperties.NextRemoveDate = nextRemoveDateUnix
+			channelProperties.NextRemoveDateUnix = nextRemoveDateUnix
 
 			// Inactive channels must be deleted
 			if isChannelInactive(channelProperties) {
@@ -61,10 +62,10 @@ func RemoveOldMessages() {
 		}
 
 		// Update channels properties
-		WriteChannelsProperties(channelsProperties)
+		cpstorage.WriteChannelsProperties(channelsProperties)
 
 		// Delete unavailable channels
-		err = DeleteChannelsProperties(channelsForRemove)
+		err = cpstorage.DeleteChannelsProperties(channelsForRemove)
 		if err != nil {
 			log.Printf("Failed to delete channels: %v", err)
 		}
@@ -74,7 +75,7 @@ func RemoveOldMessages() {
 }
 
 // Get next date for removing in channel
-func getNextRemoveDateUnix(isMessagesToRemoveExists bool, channelProperties *ChannelPropertiesEntity) (nextRemoveDateUnix int64, err error) {
+func getNextRemoveDateUnix(isMessagesToRemoveExists bool, channelProperties *cpstorage.ChannelPropertiesEntity) (nextRemoveDateUnix int64, err error) {
 	// if messages were deleted, perform removing again
 	if isMessagesToRemoveExists {
 		return 0, nil
@@ -104,9 +105,9 @@ func getNextRemoveDateUnix(isMessagesToRemoveExists bool, channelProperties *Cha
 }
 
 // Check if there has been chat activity for too long
-func isChannelInactive(channelProperties *ChannelPropertiesEntity) (isInactive bool) {
-	timeScienceLastActivity := time.Since(time.Unix(channelProperties.LastActivityDate, 0))
-	return timeScienceLastActivity.Hours() > RemoveInactiveChannelTimeHorus
+func isChannelInactive(channelProperties *cpstorage.ChannelPropertiesEntity) (isInactive bool) {
+	timeScienceLastActivity := time.Since(time.Unix(channelProperties.LastActivityDateUnix, 0))
+	return timeScienceLastActivity.Hours() > RemoveInactiveChannelTimeoutHorus
 }
 
 // Check is error of getting messages from channel is access problem
@@ -123,7 +124,7 @@ func isErrorChannelUnavailable(discordMessageGetError error) (isUnavailable bool
 }
 
 // Get messages that are already outdated
-func getChannelMessagesBeforeOutdateTime(messagesNumber int, channelProperties *ChannelPropertiesEntity) (messages []*discordgo.Message, err error) {
+func getChannelMessagesBeforeOutdateTime(messagesNumber int, channelProperties *cpstorage.ChannelPropertiesEntity) (messages []*discordgo.Message, err error) {
 	outdateSnwoflakeId := getChannelOutdateTimeInSnowflakeFormat(channelProperties)
 	messages, err = Session.ChannelMessages(channelProperties.ChannelID, messagesNumber, outdateSnwoflakeId, "", "")
 
@@ -131,7 +132,7 @@ func getChannelMessagesBeforeOutdateTime(messagesNumber int, channelProperties *
 }
 
 // Get messages that were sent after outdate time
-func getChannelMessagesAfterOutdateTime(messagesNumber int, channelProperties *ChannelPropertiesEntity) (messages []*discordgo.Message, err error) {
+func getChannelMessagesAfterOutdateTime(messagesNumber int, channelProperties *cpstorage.ChannelPropertiesEntity) (messages []*discordgo.Message, err error) {
 	outdateSnowflakeId := getChannelOutdateTimeInSnowflakeFormat(channelProperties)
 	messages, err = Session.ChannelMessages(channelProperties.ChannelID, messagesNumber, "", outdateSnowflakeId, "")
 
@@ -139,7 +140,7 @@ func getChannelMessagesAfterOutdateTime(messagesNumber int, channelProperties *C
 }
 
 // Get time when messages became outdated and converts it to snowflake format
-func getChannelOutdateTimeInSnowflakeFormat(channelProperties *ChannelPropertiesEntity) (snowflakeId string) {
+func getChannelOutdateTimeInSnowflakeFormat(channelProperties *cpstorage.ChannelPropertiesEntity) (snowflakeId string) {
 	outdateTimestamp := time.Now().Add(-time.Duration(channelProperties.Timeout * float64(time.Hour)))
 	outdateSnowflakeId := TimestampToSnowflakeId(outdateTimestamp)
 

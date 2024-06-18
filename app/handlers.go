@@ -3,16 +3,17 @@ package main
 // Handlers
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"math"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/mdpakhmurin/discord-outdate-delete-bot/data/cpstorage"
 )
 
 var (
+	// Map of command handlers
 	commandHandlers = map[string]func(session *discordgo.Session, interaction *discordgo.InteractionCreate){
 		"set-timeout":    SetTimeoutCommandHandler,
 		"info-timeout":   InfoCommandHandler,
@@ -39,35 +40,37 @@ func CommandsHandler(session *discordgo.Session, interaction *discordgo.Interact
 	}
 }
 
+// Info timeout command handler
 func InfoCommandHandler(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
 	channelID := interaction.ChannelID
 
 	// Get channelProperties
-	channelProperties, err := GetChannelProperties(channelID)
+	channelProperties, err := cpstorage.GetChannelProperties(channelID)
 
-	if err == sql.ErrNoRows {
-		responseToCommand("Messages are not deleted in this channel", session, interaction)
-	} else if err != nil {
+	if err != nil {
 		log.Printf("Failed to get timeout %v", err)
 		responseToCommand("Failed to get timeout", session, interaction)
+	} else if channelProperties == nil {
+		responseToCommand("Messages are not deleted in this channel", session, interaction)
 	} else {
 		responseMessage := fmt.Sprintf("All messages sent more than %s ago will be deleted", сonvertFloatHoursToTimeString(channelProperties.Timeout))
 		responseToCommand(responseMessage, session, interaction)
 
-		err := UpdateChanneLastActivity(channelID, time.Now().Unix())
+		err := cpstorage.UpdateChannelLastActivity(channelID, time.Now().Unix())
 		if err != nil {
 			log.Printf("Failed to update channel last activity %v: ", err)
 		}
 	}
 }
 
+// Remove timeout command handler
 func RemoveTimeoutCommandHandler(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
 	channelID := interaction.ChannelID
 
 	responseMessage := "Deleting messages in the channel has been stopped"
 
 	// Remove timeout
-	err := DeleteChannelProperties(channelID)
+	err := cpstorage.DeleteChannelProperties(channelID)
 	if err != nil {
 		responseMessage = "Failed to stop deletion"
 		log.Printf("Failed to stop deletion: %v", err)
@@ -76,21 +79,22 @@ func RemoveTimeoutCommandHandler(session *discordgo.Session, interaction *discor
 	responseToCommand(responseMessage, session, interaction)
 }
 
+// Set timeout command handler
 func SetTimeoutCommandHandler(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
 	hours := interaction.ApplicationCommandData().Options[0].FloatValue()
 	channelID := interaction.ChannelID
 
 	responseMessage := fmt.Sprintf("All messages sent more than %s ago will be deleted", сonvertFloatHoursToTimeString(hours))
 
-	channelProperties := ChannelPropertiesEntity{
-		ChannelID:        channelID,
-		Timeout:          hours,
-		LastActivityDate: time.Now().Unix(),
-		NextRemoveDate:   0, // Channel must be checked now
+	channelProperties := cpstorage.ChannelPropertiesEntity{
+		ChannelID:            channelID,
+		Timeout:              hours,
+		LastActivityDateUnix: time.Now().Unix(),
+		NextRemoveDateUnix:   0, // Channel must be checked now
 	}
 
 	// Save channel properties
-	err := WriteChannelProperties(&channelProperties)
+	err := cpstorage.WriteChannelProperties(&channelProperties)
 	if err != nil {
 		responseMessage = "Failed to save timeout"
 		log.Printf("Failed to save timeout: %v", err)
@@ -99,16 +103,19 @@ func SetTimeoutCommandHandler(session *discordgo.Session, interaction *discordgo
 	responseToCommand(responseMessage, session, interaction)
 }
 
-func responseToCommand(message string, session *discordgo.Session, interaction *discordgo.InteractionCreate) {
-	session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+// Universal way to responsd to command
+func responseToCommand(message string, session *discordgo.Session, interaction *discordgo.InteractionCreate) (err error) {
+	err = session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: message,
 			Flags:   64, // 64 - Ephemeral messages. These messages are visible only to the user who called the command
 		},
 	})
+	return
 }
 
+// Format hours (float) to "Xh Ym" form
 func сonvertFloatHoursToTimeString(hours float64) string {
 	h := int(math.Floor(hours))
 	m := int(math.Round((hours - float64(h)) * 60))

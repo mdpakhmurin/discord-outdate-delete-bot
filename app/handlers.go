@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/mdpakhmurin/discord-outdate-delete-bot/data/cpstorage"
+	"github.com/mdpakhmurin/discord-outdate-delete-bot/cpstorage"
 )
 
 var (

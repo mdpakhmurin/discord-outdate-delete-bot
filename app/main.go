@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -8,19 +9,14 @@ import (
 	"os/signal"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/mdpakhmurin/discord-outdate-delete-bot/data/cpstorage"
+	"github.com/mdpakhmurin/discord-outdate-delete-bot/cfgloader"
+	"github.com/mdpakhmurin/discord-outdate-delete-bot/cpstorage"
 )
 
 var (
-	BotToken                          string
-	GuildID                                   = ""
-	IsLogToFIle                               = true
-	MaximumHoursValue                 float64 = 720  // 1 month
-	MinimalHoursValue                 float64 = 0.05 // 3 minutes
-	IsRemoveCommandsAfterExit                 = true
-	RemoveInactiveChannelTimeoutHorus float64 = 720 // 1 month
-	Session                           *discordgo.Session
-	SharedDataPath                    = "./data"
+	Session        *discordgo.Session
+	SharedDataPath = "./data"
+	Config         cfgloader.Config
 )
 
 func init() {
@@ -29,15 +25,29 @@ func init() {
 	RegisterHandlers()
 }
 
-// Load configuration
+// Load gloabal config
 func loadConfig() {
-	BotToken = "Bot " + os.Getenv("DISCORD_OUTDATE_DELETE_BOT_TOKEN")
+	var err error
+
+	// Try to load config
+	Config, err = cfgloader.LoadConfig(SharedDataPath + "/config.ini")
+	if err != nil {
+		log.Fatalf("Failed to load config, %v", err)
+	}
+
+	// Beauty print loaded config
+	cfgJSON, err := json.MarshalIndent(Config, "", "  ")
+	if err != nil {
+		log.Fatalf("Failed to marshal config: %v", err)
+	}
+
+	fmt.Printf("Config loaded: %s\n", cfgJSON)
 }
 
 // Conntect to bot. Load session
 func loadSession() {
 	var err error
-	Session, err = discordgo.New(BotToken)
+	Session, err = discordgo.New(Config.BotToken)
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
@@ -69,7 +79,7 @@ func setupLogToFile(logFilePath string) (file *os.File) {
 func main() {
 	cpstorage.Init(SharedDataPath)
 
-	if IsLogToFIle {
+	if Config.IsLogToFile {
 		file := setupLogToFile(SharedDataPath + "/log.txt")
 		defer file.Close()
 	}
@@ -82,7 +92,7 @@ func main() {
 	defer Session.Close()
 
 	registeredCommands := RegisterCommands()
-	if IsRemoveCommandsAfterExit {
+	if Config.IsRemoveCommandsAfterExit {
 		defer RemoveCommands(registeredCommands)
 	}
 

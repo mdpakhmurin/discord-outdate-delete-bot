@@ -36,6 +36,9 @@ func RemoveOldMessages() {
 			// Pinned messages will not be deleted
 			messages = excludePinnedMessages(messages)
 
+			// First message in thread can not be deleted
+			messages = excludeThreadStartMessages(messages)
+
 			// Delete outdate messages
 			err = deleteChannelMessages(channelID, messages)
 			if err != nil {
@@ -157,12 +160,38 @@ func excludePinnedMessages(messagesAfterOutdate []*discordgo.Message) (unpinnedM
 	return
 }
 
-// Delete messages in channel
+// Filter thread start message (first message in thread)
+func excludeThreadStartMessages(messagesAfterOutdate []*discordgo.Message) (unpinnedMessages []*discordgo.Message) {
+	for _, message := range messagesAfterOutdate {
+		if message.Type != discordgo.MessageTypeThreadStarterMessage {
+			unpinnedMessages = append(unpinnedMessages, message)
+		}
+	}
+	return
+}
+
+// Delete messages in channel with their threads
 func deleteChannelMessages(channelID string, messages []*discordgo.Message) (err error) {
+	// delete messages
 	messageIDs := make([]string, len(messages))
 	for i, message := range messages {
 		messageIDs[i] = message.ID
 	}
+
 	err = Session.ChannelMessagesBulkDelete(channelID, messageIDs)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// delete threads
+	for _, message := range messages {
+		if message.Thread != nil {
+			_, err = Session.ChannelDelete(message.Thread.ID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

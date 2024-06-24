@@ -15,6 +15,7 @@ type Config struct {
 	MinimaOutdatelHoursValue          float64
 	IsRemoveCommandsAfterExit         bool
 	RemoveInactiveChannelTimeoutHours float64
+	RemoveBatchSize                   int
 }
 
 // Load configuration
@@ -42,8 +43,14 @@ func loadBotSection(cfgFile *ini.File, cfg *Config) (err error) {
 	if botTokenStr == "" {
 		return fmt.Errorf("failed to read BotToken from config")
 	}
-
 	cfg.BotToken = "Bot " + botSection.Key("BotToken").String()
+
+	removeBatchSize, err := botSection.Key("RemoveBatchSize").Int()
+	if err != nil {
+		removeBatchSize = 30
+	}
+	cfg.RemoveBatchSize = removeBatchSize
+
 	return nil
 }
 

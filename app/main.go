@@ -41,7 +41,7 @@ func loadConfig() {
 		log.Fatalf("Failed to marshal config: %v", err)
 	}
 
-	fmt.Printf("Config loaded: %s\n", cfgJSON)
+	log.Printf("Config loaded: %s\n", cfgJSON)
 }
 
 // Conntect to bot. Load session

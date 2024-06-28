@@ -102,6 +102,7 @@ func WriteChannelProperties(channelProperties *ChannelPropertiesEntity) (err err
 		channelProperties.Timeout,
 		channelProperties.LastActivityDateUnix,
 		channelProperties.NextRemoveDateUnix)
+
 	return
 }
 
@@ -151,4 +152,22 @@ func WriteChannelsProperties(channelsProperties []*ChannelPropertiesEntity) (err
 	}
 
 	return nil
+}
+
+// Update last activity date (unix time) for channel
+func UpdateChannelLastActivityDate(channelID string, lastActivityUnixTime int64) (err error) {
+	dbLock.Lock()
+	defer dbLock.Unlock()
+
+	_, err = db.Exec("UPDATE channels SET last_activity_date = ? WHERE channel_id = ?", lastActivityUnixTime, channelID)
+	return
+}
+
+// Update last activity date (unix time) for channel
+func UpdateChannelNextRemoveDate(channelID string, nextRemoveDateUnixTime int64) (err error) {
+	dbLock.Lock()
+	defer dbLock.Unlock()
+
+	_, err = db.Exec("UPDATE channels SET next_remove_date = ? WHERE channel_id = ?", nextRemoveDateUnixTime, channelID)
+	return
 }

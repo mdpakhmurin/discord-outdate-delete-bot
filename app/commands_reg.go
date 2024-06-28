@@ -8,7 +8,9 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-var (
+var commands []*discordgo.ApplicationCommand
+
+func initCommands() {
 	commands = []*discordgo.ApplicationCommand{
 		{
 			Name:        "info-timeout",
@@ -33,10 +35,11 @@ var (
 			},
 		},
 	}
-)
+}
 
 // Register commands in the bot (and local)
 func RegisterCommands() (registeredCommands []*discordgo.ApplicationCommand) {
+	initCommands()
 	log.Println("Registering commands...")
 
 	for _, command := range commands {

@@ -56,7 +56,7 @@ func InfoCommandHandler(session *discordgo.Session, interaction *discordgo.Inter
 		responseMessage := fmt.Sprintf("All messages sent more than %s ago will be deleted", сonvertFloatHoursToTimeString(channelProperties.Timeout))
 		responseToCommand(responseMessage, session, interaction)
 
-		err := cpstorage.UpdateChannelLastActivity(channelID, time.Now().Unix())
+		err := cpstorage.UpdateChannelLastActivityDate(channelID, time.Now().Unix())
 		if err != nil {
 			log.Printf("Failed to update channel last activity %v: ", err)
 		}

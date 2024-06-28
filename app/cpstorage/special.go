@@ -17,11 +17,17 @@ func GetChannelsWithRemoveDateBeforeMoment(momentUnixTime int64) (channels []*Ch
 	return
 }
 
-// Update last activity date (unix time) for channel
-func UpdateChannelLastActivity(channelID string, lastActivityUnixTime int64) (err error) {
-	dbLock.Lock()
-	defer dbLock.Unlock()
+// Get channels IDs with remove date before specified date (unix time)
+// These channels may contain outdated messages for removing
+func GetChannelsIdsWithRemoveDateBeforeMoment(momentUnixTime int64) (channelIDs []string, err error) {
+	dbLock.RLock()
+	defer dbLock.RUnlock()
 
-	_, err = db.Exec("UPDATE channels SET last_activity_date = ? WHERE channel_id = ?", lastActivityUnixTime, channelID)
+	query := `
+        SELECT channel_id FROM channels
+        WHERE next_remove_date < ?
+    `
+	err = sqlxdb.Select(&channelIDs, query, momentUnixTime)
+
 	return
 }

@@ -16,6 +16,7 @@ type Config struct {
 	IsRemoveCommandsAfterExit         bool
 	RemoveInactiveChannelTimeoutHours float64
 	RemoveBatchSize                   int
+	OldDontRemoveTimeoutHours         float64
 }
 
 // Load configuration
@@ -80,5 +81,10 @@ func loadTimeSectiong(cfgFile *ini.File, cfg *Config) {
 	cfg.MinimaOutdatelHoursValue, err = hoursSection.Key("MinimalOutdateHoursValue").Float64()
 	if err != nil {
 		cfg.MinimaOutdatelHoursValue = 0.15 // 9 minutes
+	}
+
+	cfg.OldDontRemoveTimeoutHours, err = hoursSection.Key("OldDontRemoveTimeoutHours").Float64()
+	if err != nil {
+		cfg.OldDontRemoveTimeoutHours = 335 // 14 days
 	}
 }
